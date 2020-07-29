@@ -1,63 +1,55 @@
-import React from "react";
+import React, { useRef, useEffect } from "react";
 import styled from "styled-components";
 
-const Item = ({
-  index,
-  name,
-  cost,
-  value,
-  numOwned,
-  handleAttemptedPurchase,
-}) => {
-  const ref = React.useRef(null);
+const Wrapper = styled.button`
+  display: flex;
+  flex-direction: row;
+  border: 5px solid white;
+`;
 
-  React.useEffect(() => {
-    if (index === 0) {
-      ref.current.focus();
-    }
-  }, [index]);
+const ItemInfo = styled.div`
+  display: flex;
+  flex-direction: column;
+  border: 2px solid red;
+`;
+
+const Counter = styled.div`
+  border: 2px solid blue;
+`;
+
+const Item = (props) => {
+  const cursorItemRef = useRef(null);
+
+  useEffect(() => {
+    if (props.id === "cursor") cursorItemRef.current.focus();
+  }, []);
 
   return (
-    <Wrapper ref={ref} onClick={handleAttemptedPurchase}>
-      <Left>
-        <Name>{name}</Name>
-        <Info>
-          Cost: {cost} cookie(s). Produces {value} cookies/second.
-        </Info>
-      </Left>
-      <Right>{numOwned}</Right>
+    <Wrapper
+      ref={cursorItemRef}
+      onClick={(ev) => {
+        props.setPurchasedItem({
+          ...props.purchasedItem,
+          [props.id]: props.purchasedItem[props.id] + 1,
+        });
+      }}
+    >
+      <ItemInfo>
+        <div className="item">
+          <h3>{props.id}</h3>
+        </div>
+        <div className="cost">
+          <p>
+            Cost {props.cost} Cookies. Produces {props.value} cookie/second.
+          </p>
+        </div>
+      </ItemInfo>
+      <Counter>
+        <h2>{props.purchasedItem[props.id]}</h2>
+        {/* <h2>{props.handleClick}</h2> */}
+      </Counter>
     </Wrapper>
   );
 };
-
-const Wrapper = styled.button`
-  width: 100%;
-  display: flex;
-  align-items: center;
-  background: transparent;
-  border: none;
-  border-bottom: 1px solid #444;
-  color: #fff;
-  text-align: left;
-  padding: 15px 0;
-`;
-
-const Left = styled.div`
-  flex: 1;
-`;
-
-const Name = styled.h4`
-  font-size: 22px;
-`;
-
-const Info = styled.div`
-  color: #ccc;
-  font-size: 15px;
-`;
-
-const Right = styled.div`
-  font-size: 32px;
-  padding: 0 20px;
-`;
 
 export default Item;

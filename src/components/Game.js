@@ -1,11 +1,12 @@
-import React from "react";
+import React, { useEffect, useState, useRef } from "react";
 import styled from "styled-components";
 import { Link } from "react-router-dom";
-
-import useInterval from "../hooks/use-interval.hook";
-
-import cookieSrc from "../cookie.svg";
 import Item from "./Item";
+import useInterval from "../hooks/use-interval.hook";
+import cookieSrc from "../cookie.svg";
+import useKeydown from "../hooks/useKeydown";
+import useDocumentTitle from "../hooks/useDocumentTitle";
+import usePersistedState from "../hooks/usePersistedState";
 
 const items = [
   { id: "cursor", name: "Cursor", cost: 10, value: 1 },
@@ -13,93 +14,79 @@ const items = [
   { id: "farm", name: "Farm", cost: 1000, value: 80 },
 ];
 
-const calculateCookiesPerSecond = (purchasedItems) => {
-  return Object.keys(purchasedItems).reduce((acc, itemId) => {
-    const numOwned = purchasedItems[itemId];
-    const item = items.find((item) => item.id === itemId);
-    const value = item.value;
+/*
+all of the gameitems and cookies will be in the game context, where you will pass 
+your hooks
+gamecontext has a provider, you wrap your provider around app.js (for ex, or index)
+and the gamecontext is available inside anything in the wrapper
+its in gameprovider
+its same as video, except you have children, which are basically anything wrapped in 
+gameprovider (so anything in between <gameprovider> tags, those are the children objects)
+*/
 
-    return acc + value * numOwned;
-  }, 0);
-};
+const itemsObj = {};
+items.forEach((item) => {
+  itemsObj[item.id] = item;
+});
 
 const Game = () => {
-  const [numCookies, setNumCookies] = React.useState(1000);
-
-  const [purchasedItems, setPurchasedItems] = React.useState({
+  const [cookies, setCookies] = usePersistedState(0, "totalCookies");
+  const [purchasedItem, setPurchasedItem] = useState({
     cursor: 0,
     grandma: 0,
     farm: 0,
   });
 
-  const incrementCookies = () => {
-    setNumCookies((c) => c + 1);
+  const calculateCookiesPerTick = (purchasedItem) => {
+    let tick = 0;
+    tick += purchasedItem.cursor * itemsObj.cursor.value;
+    tick += purchasedItem.grandma * itemsObj.grandma.value;
+    tick += purchasedItem.farm * itemsObj.farm.value;
+    return tick;
   };
 
   useInterval(() => {
-    const numOfGeneratedCookies = calculateCookiesPerSecond(purchasedItems);
+    const numOfGeneratedCookies = calculateCookiesPerTick(purchasedItem);
 
-    setNumCookies(numCookies + numOfGeneratedCookies);
+    setCookies(Number(cookies) + numOfGeneratedCookies);
   }, 1000);
 
-  React.useEffect(() => {
-    document.title = `${numCookies} cookies - Cookie Clicker Workshop`;
-
-    return () => {
-      document.title = "Cookie Clicker Workshop";
-    };
-  }, [numCookies]);
-
-  React.useEffect(() => {
-    const handleKeydown = (ev) => {
-      if (ev.code === "Space") {
-        incrementCookies();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeydown);
-
-    return () => {
-      window.removeEventListener("keydown", handleKeydown);
-    };
+  useKeydown("Space", () => {
+    setCookies(Number(cookies) + itemsObj.cursor.value);
   });
+
+  useDocumentTitle(`I got ${Number(cookies)}`, "Cookie Clicker :)");
 
   return (
     <Wrapper>
       <GameArea>
         <Indicator>
-          <Total>{numCookies} cookies</Total>
-          <strong>{calculateCookiesPerSecond(purchasedItems)}</strong> cookies
-          per second
+          <Total>{Number(cookies)} cookies</Total>
+          {/* TODO: Calcuate the cookies per second and show it here: */}
+          <strong>{calculateCookiesPerTick(purchasedItem)}</strong> cookies per
+          second
         </Indicator>
-        <Button onClick={incrementCookies}>
+        <Button
+          onClick={(ev) => {
+            setCookies(Number(cookies) + 1);
+          }}
+        >
           <Cookie src={cookieSrc} />
         </Button>
       </GameArea>
 
       <ItemArea>
         <SectionTitle>Items:</SectionTitle>
-        {items.map((item, index) => {
+
+        {items.map((item) => {
           return (
             <Item
-              key={item.id}
-              index={index}
+              id={item.id}
               name={item.name}
               cost={item.cost}
               value={item.value}
-              numOwned={purchasedItems[item.id]}
-              handleAttemptedPurchase={() => {
-                if (numCookies < item.cost) {
-                  alert("Cannot afford item");
-                  return;
-                }
-
-                setNumCookies(numCookies - item.cost);
-                setPurchasedItems({
-                  ...purchasedItems,
-                  [item.id]: purchasedItems[item.id] + 1,
-                });
-              }}
+              setPurchasedItem={setPurchasedItem}
+              purchasedItem={purchasedItem}
             />
           );
         })}
@@ -108,6 +95,11 @@ const Game = () => {
     </Wrapper>
   );
 };
+
+/* TODO: Add <Item> instances here, 1 for each item type. pass item info as a prop, 
+        mapping through 
+        items to repeat the item component, passing the whole item object 
+        and using all of them   */
 
 const Wrapper = styled.div`
   display: flex;
@@ -122,11 +114,6 @@ const Button = styled.button`
   border: none;
   background: transparent;
   cursor: pointer;
-  transform-origin: center center;
-
-  &:active {
-    transform: scale(0.9);
-  }
 `;
 
 const Cookie = styled.img`
