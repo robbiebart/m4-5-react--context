@@ -1,92 +1,73 @@
-import React, { useEffect, useState, useRef } from "react";
+import React from "react";
 import styled from "styled-components";
 import { Link } from "react-router-dom";
 import Item from "./Item";
-import useInterval from "../hooks/use-interval.hook";
+import { items } from "../data";
 import cookieSrc from "../cookie.svg";
-import useKeydown from "../hooks/useKeydown";
-import useDocumentTitle from "../hooks/useDocumentTitle";
-import usePersistedState from "../hooks/usePersistedState";
-
-const items = [
-  { id: "cursor", name: "Cursor", cost: 10, value: 1 },
-  { id: "grandma", name: "Grandma", cost: 100, value: 10 },
-  { id: "farm", name: "Farm", cost: 1000, value: 80 },
-];
-
-/*
-all of the gameitems and cookies will be in the game context, where you will pass 
-your hooks
-gamecontext has a provider, you wrap your provider around app.js (for ex, or index)
-and the gamecontext is available inside anything in the wrapper
-its in gameprovider
-its same as video, except you have children, which are basically anything wrapped in 
-gameprovider (so anything in between <gameprovider> tags, those are the children objects)
-*/
-
-const itemsObj = {};
-items.forEach((item) => {
-  itemsObj[item.id] = item;
-});
+import { GameContext } from "./GameContext";
 
 const Game = () => {
-  const [cookies, setCookies] = usePersistedState(0, "totalCookies");
-  const [purchasedItem, setPurchasedItem] = useState({
-    cursor: 0,
-    grandma: 0,
-    farm: 0,
-  });
-
-  const calculateCookiesPerTick = (purchasedItem) => {
-    let tick = 0;
-    tick += purchasedItem.cursor * itemsObj.cursor.value;
-    tick += purchasedItem.grandma * itemsObj.grandma.value;
-    tick += purchasedItem.farm * itemsObj.farm.value;
-    return tick;
+  const {
+    numCookies,
+    setNumCookies,
+    purchasedItems,
+    setPurchasedItems,
+    calculateCookiesPerSecond,
+  } = React.useContext(GameContext);
+  const incrementCookies = () => {
+    setNumCookies((c) => c + 1);
   };
-
-  useInterval(() => {
-    const numOfGeneratedCookies = calculateCookiesPerTick(purchasedItem);
-
-    setCookies(Number(cookies) + numOfGeneratedCookies);
-  }, 1000);
-
-  useKeydown("Space", () => {
-    setCookies(Number(cookies) + itemsObj.cursor.value);
+  React.useEffect(() => {
+    document.title = `${numCookies} cookies - Cookie Clicker Workshop`;
+    return () => {
+      document.title = "Cookie Clicker Workshop";
+    };
+  }, [numCookies]);
+  React.useEffect(() => {
+    const handleKeydown = (ev) => {
+      if (ev.code === "Space") {
+        incrementCookies();
+      }
+    };
+    window.addEventListener("keydown", handleKeydown);
+    return () => {
+      window.removeEventListener("keydown", handleKeydown);
+    };
   });
-
-  useDocumentTitle(`I got ${Number(cookies)}`, "Cookie Clicker :)");
-
   return (
     <Wrapper>
       <GameArea>
         <Indicator>
-          <Total>{Number(cookies)} cookies</Total>
-          {/* TODO: Calcuate the cookies per second and show it here: */}
-          <strong>{calculateCookiesPerTick(purchasedItem)}</strong> cookies per
-          second
+          <Total>{numCookies} cookies</Total>
+          <strong>{calculateCookiesPerSecond(purchasedItems)}</strong> cookies
+          per second
         </Indicator>
-        <Button
-          onClick={(ev) => {
-            setCookies(Number(cookies) + 1);
-          }}
-        >
+        <Button onClick={incrementCookies}>
           <Cookie src={cookieSrc} />
         </Button>
       </GameArea>
-
       <ItemArea>
         <SectionTitle>Items:</SectionTitle>
-
-        {items.map((item) => {
+        {items.map((item, index) => {
           return (
             <Item
-              id={item.id}
+              key={item.id}
+              index={index}
               name={item.name}
               cost={item.cost}
               value={item.value}
-              setPurchasedItem={setPurchasedItem}
-              purchasedItem={purchasedItem}
+              numOwned={purchasedItems[item.id]}
+              handleAttemptedPurchase={() => {
+                if (numCookies < item.cost) {
+                  alert("Cannot afford item");
+                  return;
+                }
+                setNumCookies(numCookies - item.cost);
+                setPurchasedItems({
+                  ...purchasedItems,
+                  [item.id]: purchasedItems[item.id] + 1,
+                });
+              }}
             />
           );
         })}
@@ -95,12 +76,6 @@ const Game = () => {
     </Wrapper>
   );
 };
-
-/* TODO: Add <Item> instances here, 1 for each item type. pass item info as a prop, 
-        mapping through 
-        items to repeat the item component, passing the whole item object 
-        and using all of them   */
-
 const Wrapper = styled.div`
   display: flex;
   height: 100vh;
@@ -114,12 +89,14 @@ const Button = styled.button`
   border: none;
   background: transparent;
   cursor: pointer;
+  transform-origin: center center;
+  &:active {
+    transform: scale(0.9);
+  }
 `;
-
 const Cookie = styled.img`
   width: 200px;
 `;
-
 const ItemArea = styled.div`
   height: 100%;
   padding-right: 20px;
@@ -127,13 +104,11 @@ const ItemArea = styled.div`
   flex-direction: column;
   justify-content: center;
 `;
-
 const SectionTitle = styled.h3`
   text-align: center;
   font-size: 32px;
   color: yellow;
 `;
-
 const Indicator = styled.div`
   position: absolute;
   width: 250px;
@@ -143,17 +118,14 @@ const Indicator = styled.div`
   margin: auto;
   text-align: center;
 `;
-
 const Total = styled.h3`
   font-size: 28px;
   color: lime;
 `;
-
 const HomeLink = styled(Link)`
   position: absolute;
   top: 15px;
   left: 15px;
   color: #666;
 `;
-
 export default Game;
